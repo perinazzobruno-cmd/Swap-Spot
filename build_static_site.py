@@ -15,11 +15,11 @@ OUT_DIR = ROOT / 'docs'
 OUT_UPLOADS = OUT_DIR / 'uploads'
 
 HTML_TEMPLATE_HEAD = '''<!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <title>Trocas Din Din — Publicações</title>
+  <title>Swap Spot: Trade, Save, Repeat!</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
   <style>
     body { padding-top: 60px; background: #f8f9fa; }
@@ -28,30 +28,59 @@ HTML_TEMPLATE_HEAD = '''<!doctype html>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
-    <a class="navbar-brand" href="index.html">Trocas Din Din — Publicações</a>
+    <a class="navbar-brand" href="index.html">Swap Spot: Trade, Save, Repeat!</a>
     <div class="ml-auto text-white">
-      <span id="nav-user">Convidado</span> |
+      <span id="nav-user">Guest</span> |
       <button id="login-btn" class="btn btn-sm btn-light">Login</button>
       <button id="logout-btn" class="btn btn-sm btn-secondary" style="display:inline-block; margin-left:8px;">Logout</button>
-      <button id="publish-btn" class="btn btn-sm btn-success" style="margin-left:8px;">Publicar</button>
-      <button id="history-btn" class="btn btn-sm btn-info" style="margin-left:8px;">Histórico</button>
+      <button id="publish-btn" class="btn btn-sm btn-success" style="margin-left:8px;">Publish</button>
+      <button id="history-btn" class="btn btn-sm btn-info" style="margin-left:8px;">History</button>
     </div>
 </nav>
 <div class="container" style="padding-top: 80px">
-  <h1 class="mb-4">Anúncios disponíveis</h1>
+  <h1 class="mb-4">Available Listings</h1>
     <div class="row">
         <div id="items-container"></div>
 '''
 
 HTML_TEMPLATE_FOOT = '''
   </div>
+  <div id="publish-section" class="card mt-4 mb-4" style="display:none;">
+    <div class="card-body">
+      <h3>Post Item</h3>
+      <form id="publish-form">
+        <div class="form-group">
+          <label for="publish-title">Title</label>
+          <input type="text" id="publish-title" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="publish-description">Description</label>
+          <textarea id="publish-description" class="form-control" rows="3" required></textarea>
+        </div>
+        <div class="form-group">
+          <label for="publish-price">Price (Coins)</label>
+          <input type="number" id="publish-price" class="form-control" min="1" required>
+        </div>
+        <div class="form-group">
+          <label for="publish-whatsapp">WhatsApp</label>
+          <input type="text" id="publish-whatsapp" class="form-control" placeholder="5511999999999" required>
+        </div>
+        <div class="form-group">
+          <label for="publish-photo">Photo (JPEG)</label>
+          <input type="file" id="publish-photo" class="form-control-file" accept="image/jpeg" required>
+        </div>
+        <button type="submit" class="btn btn-success">Publish</button>
+        <button type="button" id="cancel-publish-btn" class="btn btn-secondary ml-2">Cancel</button>
+      </form>
+    </div>
+  </div>
   <div class="row mt-4">
     <div class="col-md-6">
-      <h3>Pedidos de Troca</h3>
+      <h3>Swap Requests</h3>
       <div id="trade-requests"></div>
     </div>
     <div class="col-md-6">
-      <h3>Meu Histórico</h3>
+      <h3>My History</h3>
       <div id="history-container"></div>
     </div>
   </div>
@@ -117,10 +146,10 @@ def build():
                 <div class="card-body d-flex flex-column">
                         <h5 class="card-title">{title}</h5>
                         <p class="card-text">{desc}</p>
-                        <p class="card-text text-muted">Publicado: {display_date}</p>
-                        <p class="card-text font-weight-bold">Preço: {price} Din Din</p>
-                        <p class="card-text text-muted">Vendedor: {seller}</p>
-                        <p class="card-text">Contato: <a href="https://wa.me/{whatsapp}" target="_blank">WhatsApp</a></p>
+                        <p class="card-text text-muted">Published: {display_date}</p>
+                        <p class="card-text font-weight-bold">Price: {price} Coins</p>
+                        <p class="card-text text-muted">Seller: {seller}</p>
+                        <p class="card-text">Contact: <a href="https://wa.me/{whatsapp}" target="_blank">WhatsApp</a></p>
                 </div>
         </div>
 </div>'''
@@ -150,21 +179,28 @@ function render(){
   const store = loadStore();
   const user = localStorage.getItem('currentUser');
   const navUser = document.getElementById('nav-user');
-  if(navUser){ navUser.textContent = user ? user : 'Convidado'; }
+  const publishSection = document.getElementById('publish-section');
+  const publishBtn = document.getElementById('publish-btn');
+  if(navUser){ navUser.textContent = user ? user : 'Guest'; }
+  if(publishBtn){ publishBtn.style.display = user ? 'inline-block' : 'none'; }
+  if(publishSection){ publishSection.style.display = 'none'; }
   const container = document.getElementById('items-container');
   if(!container) return;
   container.innerHTML = '';
   store.items.forEach(it=>{
     const col = document.createElement('div'); col.className='col-md-6 mb-4';
     const card = document.createElement('div'); card.className='card h-100';
-    const img = document.createElement('img'); img.className='card-img-top'; img.src = it.photo ? ('uploads/'+it.photo.split('/').pop()) : '';
+    const img = document.createElement('img'); img.className='card-img-top';
+    let photoSrc = it.photo || '';
+    if(photoSrc.startsWith('/static/')){ photoSrc = photoSrc.slice('/static/'.length); }
+    img.src = photoSrc;
     img.alt = it.title || '';
     const body = document.createElement('div'); body.className='card-body d-flex flex-column';
-    body.innerHTML = `<h5 class="card-title">${it.title}</h5><p class="card-text">${it.description}</p><p class="card-text text-muted">Publicado: ${it.date||it.created_at||it.source_mtime||''}</p><p class="card-text font-weight-bold">Preço: ${it.price} Din Din</p><p class="card-text text-muted">Vendedor: ${it.seller}</p><p class="card-text">Contato: <a href=\"https://wa.me/${it.whatsapp}\" target=\"_blank\">WhatsApp</a></p>`;
-    const btn = document.createElement('button'); btn.className='btn btn-success btn-block mt-auto'; btn.textContent='Comprar';
+    body.innerHTML = `<h5 class="card-title">${it.title}</h5><p class="card-text">${it.description}</p><p class="card-text text-muted">Published: ${it.date||it.created_at||it.source_mtime||''}</p><p class="card-text font-weight-bold">Price: ${it.price} Coins</p><p class="card-text text-muted">Seller: ${it.seller}</p><p class="card-text">Contact: <a href=\"https://wa.me/${it.whatsapp}\" target=\"_blank\">WhatsApp</a></p>`;
+    const btn = document.createElement('button'); btn.className='btn btn-success btn-block mt-auto'; btn.textContent='Buy';
     btn.onclick = ()=>{ buyItem(it.id); };
     body.appendChild(btn);
-    const tradeBtn = document.createElement('button'); tradeBtn.className='btn btn-outline-secondary btn-block mt-2'; tradeBtn.textContent='Pedir Troca';
+    const tradeBtn = document.createElement('button'); tradeBtn.className='btn btn-outline-secondary btn-block mt-2'; tradeBtn.textContent='Request Swap';
     tradeBtn.onclick = ()=>{ requestTradePrompt(it.id); };
     body.appendChild(tradeBtn);
     card.appendChild(img); card.appendChild(body); col.appendChild(card); container.appendChild(col);
@@ -172,86 +208,123 @@ function render(){
 }
 
 function loginPrompt(){
-  const name = prompt('Usuário (apenas nome):'); if(!name) return;
+  const name = prompt('Username (name only):'); if(!name) return;
   let store = loadStore(); let user = store.users.find(u=>u.username===name);
   if(!user){ user = { username: name, saldo: 30, purchase_history: [], sales_history: [] }; store.users.push(user); saveStore(store); }
-  localStorage.setItem('currentUser', name); render(); alert('Logado como '+name);
+  localStorage.setItem('currentUser', name); render(); alert('Logged in as '+name);
 }
 
 function logout(){ localStorage.removeItem('currentUser'); render(); }
 
 function buyItem(itemId){
-  const current = localStorage.getItem('currentUser'); if(!current){ alert('Faça login para comprar'); return; }
+  const current = localStorage.getItem('currentUser'); if(!current){ alert('Please login to buy'); return; }
   const store = loadStore(); const buyer = store.users.find(u=>u.username===current);
-  const item = store.items.find(i=>i.id===itemId); if(!item){ alert('Item não encontrado'); return; }
-  if(item.seller===buyer.username){ alert('Você não pode comprar seu próprio item'); return; }
-  if(buyer.saldo < item.price){ alert('Saldo insuficiente'); return; }
+  const item = store.items.find(i=>i.id===itemId); if(!item){ alert('Item not found'); return; }
+  if(item.seller===buyer.username){ alert('You cannot buy your own item'); return; }
+  if(buyer.saldo < item.price){ alert('Insufficient balance'); return; }
   const seller = store.users.find(u=>u.username===item.seller) || { username: item.seller, saldo:0, purchase_history:[], sales_history:[] };
   buyer.saldo -= item.price; seller.saldo = (seller.saldo||0) + item.price;
   buyer.purchase_history.push({ title: item.title, price: item.price, date: new Date().toISOString(), whatsapp: item.whatsapp, description: item.description });
   seller.sales_history = seller.sales_history || []; seller.sales_history.push({ title: item.title, price: item.price, buyer: buyer.username, date: new Date().toISOString() });
   store.items = store.items.filter(i=>i.id!==itemId);
   if(!store.users.find(u=>u.username===seller.username)) store.users.push(seller);
-  saveStore(store); render(); alert('Compra realizada com sucesso!');
+  saveStore(store); render(); alert('Purchase completed successfully!');
 }
 
 function requestTradePrompt(itemId){
-  const current = localStorage.getItem('currentUser'); if(!current){ alert('Faça login para pedir trocas'); return; }
+  const current = localStorage.getItem('currentUser'); if(!current){ alert('Please login to request a swap'); return; }
   const store = loadStore(); const myItems = store.items.filter(i=>i.seller===current);
-  if(myItems.length===0){ alert('Você precisa ter um item publicado para oferecer em troca'); return; }
-  const offered = prompt('Escolha o ID do seu item para oferecer:\\n' + myItems.map(i=>i.id+': '+i.title).join('\\n'));
+  if(myItems.length===0){ alert('You must post an item first to offer in swap'); return; }
+  const offered = prompt('Choose the ID of your item to offer in swap:\\n' + myItems.map(i=>i.id+': '+i.title).join('\\n'));
   if(!offered) return; const trade = { id: 't-'+Date.now(), buyer: current, seller: store.items.find(i=>i.id===itemId).seller, requested_item_id: itemId, offered_item_id: offered, created_at: new Date().toISOString() };
-  store.trades.push(trade); saveStore(store); alert('Pedido de troca enviado!'); render();
+  store.trades.push(trade); saveStore(store); alert('Swap request sent!'); render();
 }
 
 function renderTradeRequests(){
   const current = localStorage.getItem('currentUser'); const container = document.getElementById('trade-requests'); if(!container) return;
   const store = loadStore(); container.innerHTML = '';
-  if(!current) { container.innerHTML = '<div class="alert alert-secondary">Faça login para ver pedidos</div>'; return; }
+  if(!current) { container.innerHTML = '<div class="alert alert-secondary">Please login to view swap requests</div>'; return; }
   const myRequests = store.trades.filter(t=>t.seller===current);
-  if(myRequests.length===0) { container.innerHTML = '<div class="alert alert-secondary">Nenhum pedido de troca recebido.</div>'; return; }
+  if(myRequests.length===0) { container.innerHTML = '<div class="alert alert-secondary">No swap requests received.</div>'; return; }
   myRequests.forEach(t=>{
     const el = document.createElement('div'); el.className='list-group-item';
-    el.innerHTML = `<strong>${t.buyer}</strong> quer trocar ${t.requested_item_id} por ${t.offered_item_id}.`;
-    const accept = document.createElement('button'); accept.className='btn btn-success btn-sm'; accept.textContent='Aceitar'; accept.onclick=()=>{ acceptTrade(t.id); };
-    const reject = document.createElement('button'); reject.className='btn btn-danger btn-sm'; reject.style.marginLeft='8px'; reject.textContent='Recusar'; reject.onclick=()=>{ rejectTrade(t.id); };
+    el.innerHTML = `<strong>${t.buyer}</strong> wants to swap ${t.requested_item_id} for ${t.offered_item_id}.`;
+    const accept = document.createElement('button'); accept.className='btn btn-success btn-sm'; accept.textContent='Accept'; accept.onclick=()=>{ acceptTrade(t.id); };
+    const reject = document.createElement('button'); reject.className='btn btn-danger btn-sm'; reject.style.marginLeft='8px'; reject.textContent='Reject'; reject.onclick=()=>{ rejectTrade(t.id); };
     el.appendChild(document.createElement('div')).appendChild(accept);
     el.appendChild(reject);
     container.appendChild(el);
   });
 }
 
-function acceptTrade(tradeId){ const store = loadStore(); const t = store.trades.find(x=>x.id===tradeId); if(!t) return alert('Trade não encontrado'); const req = store.items.find(i=>i.id===t.requested_item_id); const off = store.items.find(i=>i.id===t.offered_item_id); if(!req || !off) { alert('Um dos itens não está mais disponível'); store.trades = store.trades.filter(x=>x.id!==tradeId); saveStore(store); render(); return; } store.items = store.items.filter(i=>i.id!==req.id && i.id!==off.id); store.trades = store.trades.filter(x=>x.id!==tradeId); saveStore(store); render(); renderTradeRequests(); alert('Troca aceita — itens removidos'); }
+function acceptTrade(tradeId){ const store = loadStore(); const t = store.trades.find(x=>x.id===tradeId); if(!t) return alert('Trade not found'); const req = store.items.find(i=>i.id===t.requested_item_id); const off = store.items.find(i=>i.id===t.offered_item_id); if(!req || !off) { alert('One of the items is no longer available'); store.trades = store.trades.filter(x=>x.id!==tradeId); saveStore(store); render(); return; } store.items = store.items.filter(i=>i.id!==req.id && i.id!==off.id); store.trades = store.trades.filter(x=>x.id!==tradeId); saveStore(store); render(); renderTradeRequests(); alert('Swap accepted — items removed'); }
 
-function rejectTrade(tradeId){ const store = loadStore(); store.trades = store.trades.filter(x=>x.id!==tradeId); saveStore(store); render(); renderTradeRequests(); alert('Pedido recusado'); }
+function rejectTrade(tradeId){ const store = loadStore(); store.trades = store.trades.filter(x=>x.id!==tradeId); saveStore(store); render(); renderTradeRequests(); alert('Swap request rejected'); }
 
-function publishItemPrompt(){
-  const current = localStorage.getItem('currentUser'); if(!current){ alert('Faça login para publicar um item'); return; }
-  const title = prompt('Título do item:'); if(!title) return;
-  const description = prompt('Descrição:') || '';
-  const priceStr = prompt('Preço (somente números):') || '0'; const price = parseFloat(priceStr) || 0;
-  const whatsapp = prompt('WhatsApp (apenas números, ex: 5511999999999):') || '';
-  const photo = prompt('Nome do arquivo em uploads (ex: foto.jpg) — deixe vazio se não tiver:') || '';
-  const id = 'i-'+Date.now();
-  const item = { id: id, title: title, description: description, price: price, photo: photo ? ('/static/uploads/'+photo) : '', whatsapp: whatsapp, seller: current, date: new Date().toISOString() };
-  const store = loadStore(); store.items.push(item); saveStore(store); render(); alert('Item publicado com sucesso!');
+function togglePublishForm(){
+  const current = localStorage.getItem('currentUser');
+  if(!current){ alert('Please login to publish an item'); return; }
+  const section = document.getElementById('publish-section');
+  if(!section) return;
+  section.style.display = section.style.display === 'block' ? 'none' : 'block';
+}
+
+function hidePublishForm(){
+  const section = document.getElementById('publish-section');
+  if(section){ section.style.display = 'none'; }
+  const form = document.getElementById('publish-form');
+  if(form){ form.reset(); }
+}
+
+function handlePublishSubmit(event){
+  event.preventDefault();
+  const current = localStorage.getItem('currentUser');
+  if(!current){ alert('Please login to publish an item'); return; }
+  const title = document.getElementById('publish-title').value.trim();
+  const description = document.getElementById('publish-description').value.trim();
+  const price = parseFloat(document.getElementById('publish-price').value) || 0;
+  const whatsapp = document.getElementById('publish-whatsapp').value.trim();
+  const photoInput = document.getElementById('publish-photo');
+  if(!title || !description || price <= 0 || !whatsapp){ alert('Please fill in all required fields correctly.'); return; }
+  if(photoInput.files.length === 0){ alert('Select a JPEG file.'); return; }
+  const file = photoInput.files[0];
+  if(file.type !== 'image/jpeg'){
+    alert('Select a JPEG file.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const photoData = e.target.result;
+    const id = 'i-'+Date.now();
+    const item = { id: id, title: title, description: description, price: price, whatsapp: whatsapp, seller: current, date: new Date().toISOString(), photo: photoData };
+    const store = loadStore();
+    store.items.push(item);
+    saveStore(store);
+    render();
+    renderTradeRequests();
+    hidePublishForm();
+    alert('Item posted successfully!');
+  };
+  reader.readAsDataURL(file);
 }
 
 function renderHistory(){
   const current = localStorage.getItem('currentUser'); const container = document.getElementById('history-container'); if(!container) return;
-  if(!current){ container.innerHTML = '<div class="alert alert-secondary">Faça login para ver histórico</div>'; return; }
+  if(!current){ container.innerHTML = '<div class="alert alert-secondary">Please login to view history</div>'; return; }
   const store = loadStore(); const user = store.users.find(u=>u.username===current) || { purchase_history: [], sales_history: [] };
-  let html = '<h5>Compras</h5>';
-  if(user.purchase_history && user.purchase_history.length){ html += '<ul class="list-group mb-3">' + user.purchase_history.map(p=>`<li class="list-group-item">${p.title} — ${p.price} Din Din — ${p.date}</li>`).join('') + '</ul>'; } else { html += '<div class="text-muted">Nenhuma compra registrada.</div>'; }
-  html += '<h5>Vendas</h5>';
-  if(user.sales_history && user.sales_history.length){ html += '<ul class="list-group">' + user.sales_history.map(s=>`<li class="list-group-item">${s.title} — ${s.price} Din Din — ${s.date} — Comprador: ${s.buyer||s.buyer}</li>`).join('') + '</ul>'; } else { html += '<div class="text-muted">Nenhuma venda registrada.</div>'; }
+  let html = '<h5>Purchases</h5>';
+  if(user.purchase_history && user.purchase_history.length){ html += '<ul class="list-group mb-3">' + user.purchase_history.map(p=>`<li class="list-group-item">${p.title} — ${p.price} Coins — ${p.date}</li>`).join('') + '</ul>'; } else { html += '<div class="text-muted">No purchases recorded.</div>'; }
+  html += '<h5>Sales</h5>';
+  if(user.sales_history && user.sales_history.length){ html += '<ul class="list-group">' + user.sales_history.map(s=>`<li class="list-group-item">${s.title} — ${s.price} Coins — ${s.date} — Buyer: ${s.buyer||s.buyer}</li>`).join('') + '</ul>'; } else { html += '<div class="text-muted">No sales recorded.</div>'; }
   container.innerHTML = html;
 }
 
 document.addEventListener('DOMContentLoaded', function(){
   const loginBtn = document.getElementById('login-btn'); if(loginBtn) loginBtn.onclick=loginPrompt;
   const logoutBtn = document.getElementById('logout-btn'); if(logoutBtn) logoutBtn.onclick=logout;
-  const publishBtn = document.getElementById('publish-btn'); if(publishBtn) publishBtn.onclick=publishItemPrompt;
+  const publishBtn = document.getElementById('publish-btn'); if(publishBtn) publishBtn.onclick=togglePublishForm;
+  const publishForm = document.getElementById('publish-form'); if(publishForm) publishForm.addEventListener('submit', handlePublishSubmit);
+  const cancelPublishBtn = document.getElementById('cancel-publish-btn'); if(cancelPublishBtn) cancelPublishBtn.onclick=hidePublishForm;
   const historyBtn = document.getElementById('history-btn'); if(historyBtn) historyBtn.onclick=renderHistory;
   render(); renderTradeRequests();
 });

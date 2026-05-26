@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Swap Spot: Trade, Save, Repeat!</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <style>
+        body { padding-top: 60px; background: #f8f9fa; }
+        .card-img-top { object-fit: cover; height: 200px; }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+    <a class="navbar-brand" href="{{ url_for('home') }}">Swap Spot: Trade, Save, Repeat!</a>
+    <div class="ml-auto text-white">
+        {% if user %}
+            <span>{{ user.username }}</span> | 
+            <strong>💰 {{ user.saldo }} Coins</strong> | 
+            <a href="{{ url_for('logout') }}" class="text-white">Logout</a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="text-white">Login</a>
+        {% endif %}
+    </div>
+</nav>
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-info mt-3">
+          {% for msg in messages %}{{ msg }}<br>{% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <div class="col-md-8">
+            <h3 class="mb-3">Available Listings</h3>
+            <div class="row">
+                {% for item in items %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <img src="{{ item.photo }}" class="card-img-top" alt="{{ item.title }}">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">{{ item.title }}</h5>
+                            <p class="card-text">{{ item.description }}</p>
+                            <p class="card-text font-weight-bold">Price: {{ item.price }} Coins</p>
+                            <p class="card-text text-muted">Seller: {{ item.seller }}</p>
+                            <p class="card-text">Contact: <a href="https://wa.me/{{ item.whatsapp }}" target="_blank">WhatsApp</a></p>
+                            {% if user and user.username == item.seller %}
+                            <div class="btn-group btn-block" role="group">
+                                <form action="{{ url_for('delete_item', item_id=item.id) }}" method="post" style="flex: 1;">
+                                    <button type="submit" class="btn btn-danger btn-block">Remove</button>
+                                </form>
+                            </div>
+                            {% elif user and user.username != item.seller %}
+                            <form action="{{ url_for('buy', item_id=item.id) }}" method="post" class="mt-auto">
+                                <button type="submit" class="btn btn-success btn-block">Buy</button>
+                            </form>
+                            {% if my_items %}
+                            <form action="{{ url_for('request_trade', item_id=item.id) }}" method="post" class="mt-2">
+                                <div class="form-group mb-2">
+                                    <select name="offered_item_id" class="form-control" required>
+                                        <option value="">Offer one of your items in swap</option>
+                                        {% for my_item in my_items %}
+                                        <option value="{{ my_item.id }}">{{ my_item.title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-outline-secondary btn-block">Request Swap</button>
+                            </form>
+                            {% else %}
+                            <button class="btn btn-outline-secondary btn-block mt-2" disabled>Post an item first to offer in swap</button>
+                            {% endif %}
+                            {% else %}
+                            <button class="btn btn-success btn-block" disabled>Login to buy</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-12">
+                    <div class="alert alert-secondary">No items available right now.</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="col-md-4">
+            {% if user %}
+            <h4 class="mb-3">Post Item</h4>
+            <form id="add-item-form" action="{{ url_for('add_item') }}" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="title">Title</label>
+                    <input type="text" id="title" name="title" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="price">Price (Coins)</label>
+                    <input type="number" id="price" name="price" min="1" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="photo">Photo (JPEG)</label>
+                    <input type="file" id="photo" name="photo" accept="image/jpeg" class="form-control-file" required>
+                </div>
+                <div class="form-group">
+                    <label for="whatsapp">WhatsApp</label>
+                    <input type="text" id="whatsapp" name="whatsapp" class="form-control" placeholder="5511999999999" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Publish</button>
+            </form>
+            <hr>
+            <h4 class="mb-3">Received Swap Requests</h4>
+            {% if trade_requests %}
+            <div class="list-group">
+                {% for trade in trade_requests %}
+                <div class="list-group-item">
+                    <strong>{{ trade.buyer }}</strong> wants to swap <em>{{ trade.requested_title }}</em>
+                    for <em>{{ trade.offered_title }}</em>.
+                    <div class="mt-2">
+                        <form action="{{ url_for('accept_trade', trade_id=trade.id) }}" method="post" style="display:inline-block;">
+                            <button type="submit" class="btn btn-success btn-sm">Accept</button>
+                        </form>
+                        <form action="{{ url_for('reject_trade', trade_id=trade.id) }}" method="post" style="display:inline-block; margin-left: 8px;">
+                            <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-secondary">No swap requests received.</div>
+            {% endif %}
+
+            <hr>
+            <h4 class="mb-3">Purchase History</h4>
+            {% if user.purchase_history %}
+            <ul class="list-group mb-3">
+                {% for entry in user.purchase_history %}
+                <li class="list-group-item">
+                    Bought <strong>{{ entry.get('name', entry.get('title', '')) }}</strong> for <strong>{{ entry.get('price', '') }} Coins</strong><br>
+                    Contact: <a href="https://wa.me/{{ entry.get('zap', entry.get('whatsapp', '')) }}" target="_blank">{{ entry.get('zap', entry.get('whatsapp', '')) }}</a><br>
+                    {{ entry.get('description', '') }}<br>
+                    on {{ entry.get('date', '')[:19].replace('T', ' ') }}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="alert alert-secondary">No purchases recorded.</div>
+            {% endif %}
+
+            <h4 class="mb-3">Sales History</h4>
+            {% if user.sales_history %}
+            <ul class="list-group">
+                {% for entry in user.sales_history %}
+                <li class="list-group-item">
+                    Sold <strong>{{ entry.title }}</strong> for <strong>{{ entry.price }} Coins</strong>
+                    to {{ entry.buyer }} on {{ entry.date[:19].replace('T', ' ') }}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="alert alert-secondary">No sales recorded.</div>
+            {% endif %}
+            {% else %}
+            <div class="alert alert-info">Login to post listings</div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('add-item-form');
+    if (form) {
+        form.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && event.target.tagName === 'INPUT') {
+                event.preventDefault();
+            }
+        });
+    }
+});
+</script>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
